@@ -12,11 +12,13 @@
     </div>
   </nav>
   <router-view />
+  <Toast />
 </template>
 
 <script setup>
 import { computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
+import Toast from "./components/Toast.vue";
 
 const router = useRouter();
 const route = useRoute();

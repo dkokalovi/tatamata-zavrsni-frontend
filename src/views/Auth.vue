@@ -31,6 +31,43 @@
               <label class="form-label">Adresa (opcionalno)</label>
               <input v-model="form.adresa" type="text" class="form-control" />
             </div>
+
+            <div class="form-check mb-3">
+              <input
+                v-model="postajeObrtnik"
+                class="form-check-input"
+                type="checkbox"
+                id="postajeObrtnik"
+              />
+              <label class="form-check-label" for="postajeObrtnik">
+                Registriram se kao obrtnik (dodajem svoju firmu)
+              </label>
+            </div>
+
+            <template v-if="postajeObrtnik">
+              <hr />
+              <h6>Podaci o obrtu</h6>
+              <div class="mb-3">
+                <label class="form-label">Naziv obrta</label>
+                <input v-model="companyForm.naziv" type="text" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Telefon obrta</label>
+                <input v-model="companyForm.telefon" type="tel" class="form-control" required />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Grad</label>
+                <input v-model="companyForm.grad" type="text" class="form-control" />
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Kategorije rada</label>
+                <select v-model="companyForm.kategorije" class="form-select" multiple size="6" required>
+                  <option v-for="k in kategorije" :key="k" :value="k">{{ k }}</option>
+                </select>
+                <small class="text-muted">Drži Ctrl (Cmd na Macu) za odabir više kategorija.</small>
+              </div>
+              <hr />
+            </template>
           </template>
 
           <div class="mb-3">
@@ -61,12 +98,19 @@
 import { ref, reactive } from "vue";
 import { useRouter } from "vue-router";
 import api from "../api.js";
+import { showSuccess } from "../toast.js";
 
 const router = useRouter();
 
 const isLogin = ref(true);
 const loading = ref(false);
 const error = ref("");
+const postajeObrtnik = ref(false);
+
+const kategorije = [
+  "vlaga_i_fleke", "pukotine", "krov", "vodoinstalacije", "elektroinstalacije",
+  "fasada", "podovi_i_zidne_obloge", "izolacija", "plijesan", "stolarija", "ostalo",
+];
 
 const form = reactive({
   ime: "",
@@ -77,9 +121,17 @@ const form = reactive({
   password: "",
 });
 
+const companyForm = reactive({
+  naziv: "",
+  telefon: "",
+  grad: "",
+  kategorije: [],
+});
+
 function toggleMode() {
   isLogin.value = !isLogin.value;
   error.value = "";
+  postajeObrtnik.value = false;
 }
 
 async function submit() {
@@ -88,12 +140,23 @@ async function submit() {
 
   try {
     const url = isLogin.value ? "/auth/login" : "/auth/register";
-    const { data } = await api.post(url, { ...form });
+    const payload = { ...form };
+
+    if (!isLogin.value && postajeObrtnik.value) {
+      payload.postajeObrtnik = true;
+      payload.companyNaziv = companyForm.naziv;
+      payload.companyTelefon = companyForm.telefon;
+      payload.companyGrad = companyForm.grad;
+      payload.companyKategorije = companyForm.kategorije;
+    }
+
+    const { data } = await api.post(url, payload);
 
     localStorage.setItem("token", data.token);
     localStorage.setItem("role", data.user.role);
     localStorage.setItem("user", JSON.stringify(data.user));
 
+    if (!isLogin.value) showSuccess("Uspješna registracija!");
     router.push("/pocetna");
   } catch (err) {
     error.value = err.response?.data?.message || "Došlo je do greške.";

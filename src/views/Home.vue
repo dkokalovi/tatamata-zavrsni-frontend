@@ -86,7 +86,6 @@
               </button>
             </div>
 
-            <!-- Ocjenjivanje - pojavi se nakon sto je interes poslan -->
             <div v-if="interestSentFor.has(c._id)" class="mt-2 pt-2 border-top">
               <div v-if="!ratedFor.has(c._id)">
                 <label class="form-label small mb-1">Ocijeni firmu (nakon zavrsenog posla):</label>
@@ -130,6 +129,7 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import api, { imageUrl } from "../api.js";
+import { showSuccess, showError } from "../toast.js";
 
 const fileInput = ref(null);
 const previewUrl = ref("");
@@ -185,23 +185,25 @@ async function expressInterest(companyId) {
     const { data } = await api.post("/interest", { companyId, analysisId: result.value._id });
     interestSentFor.value = new Set([...interestSentFor.value, companyId]);
     interestIdFor.value[companyId] = data._id;
+    showSuccess("Interes poslan firmi.");
   } catch (err) {
-    alert(err.response?.data?.message || "Greška.");
+    showError(err.response?.data?.message || "Greška.");
   }
 }
 
 async function rateCompany(companyId) {
   const ocjena = ratingInputs.value[companyId];
   if (!ocjena) {
-    alert("Odaberi ocjenu prije spremanja.");
+    showError("Odaberi ocjenu prije spremanja.");
     return;
   }
   try {
     const interestId = interestIdFor.value[companyId];
     await api.patch(`/interest/${interestId}/ocjena`, { ocjena });
     ratedFor.value = new Set([...ratedFor.value, companyId]);
+    showSuccess("Ocjena spremljena.");
   } catch (err) {
-    alert(err.response?.data?.message || "Greška pri spremanju ocjene.");
+    showError(err.response?.data?.message || "Greška pri spremanju ocjene.");
   }
 }
 
@@ -229,8 +231,9 @@ async function deleteHistoryItem(h) {
     if (result.value && result.value._id === h._id) {
       result.value = null;
     }
+    showSuccess("Analiza obrisana.");
   } catch (err) {
-    alert(err.response?.data?.message || "Greška pri brisanju.");
+    showError(err.response?.data?.message || "Greška pri brisanju.");
   }
 }
 

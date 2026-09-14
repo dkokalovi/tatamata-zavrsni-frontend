@@ -80,10 +80,21 @@
     </div>
 
     <div v-if="activeTab === 'Korisnici'">
+      <div class="d-flex justify-content-end mb-2">
+        <button class="btn btn-sm btn-outline-secondary" @click="exportCsv(users, 'korisnici')">
+          Export CSV
+        </button>
+      </div>
       <table class="table table-sm">
-        <thead><tr><th>Ime</th><th>Email</th><th>Rola</th></tr></thead>
+        <thead>
+          <tr>
+            <th role="button" @click="sortBy('users', 'ime')">Ime {{ sortIndicator('users', 'ime') }}</th>
+            <th role="button" @click="sortBy('users', 'email')">Email {{ sortIndicator('users', 'email') }}</th>
+            <th role="button" @click="sortBy('users', 'role')">Rola {{ sortIndicator('users', 'role') }}</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="u in users" :key="u._id">
+          <tr v-for="u in sortedUsers" :key="u._id">
             <td>{{ u.ime }} {{ u.prezime }}</td>
             <td>{{ u.email }}</td>
             <td>{{ u.role }}</td>
@@ -93,10 +104,34 @@
     </div>
 
     <div v-if="activeTab === 'Analize'">
+      <div class="row g-2 mb-2">
+        <div class="col-6">
+          <select v-model="analysisFilter.kategorija" class="form-select form-select-sm">
+            <option value="">Sve kategorije</option>
+            <option v-for="k in kategorije" :key="k" :value="k">{{ k }}</option>
+          </select>
+        </div>
+        <div class="col-6 text-end">
+          <button class="btn btn-sm btn-outline-secondary" @click="exportCsv(filteredAnalyses, 'analize')">
+            Export CSV
+          </button>
+        </div>
+      </div>
       <table class="table table-sm">
-        <thead><tr><th>Korisnik</th><th>Problem</th><th>Kategorija</th><th>Datum</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Korisnik</th>
+            <th>Problem</th>
+            <th role="button" @click="sortBy('analyses', 'kategorija')">
+              Kategorija {{ sortIndicator('analyses', 'kategorija') }}
+            </th>
+            <th role="button" @click="sortBy('analyses', 'createdAt')">
+              Datum {{ sortIndicator('analyses', 'createdAt') }}
+            </th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="a in analyses" :key="a._id">
+          <tr v-for="a in sortedFilteredAnalyses" :key="a._id">
             <td>{{ a.user?.ime }} {{ a.user?.prezime }}</td>
             <td>{{ a.naslovProblema }}</td>
             <td>{{ a.kategorija }}</td>
@@ -150,19 +185,34 @@
         <button class="btn btn-tm btn-sm mt-2" type="submit">Dodaj firmu</button>
       </form>
 
-      <input
-        v-model="companySearch"
-        type="text"
-        class="form-control form-control-sm mb-2"
-        placeholder="Pretraži firme po nazivu ili gradu..."
-      />
+      <div class="d-flex gap-2 mb-2">
+        <input
+          v-model="companySearch"
+          type="text"
+          class="form-control form-control-sm"
+          placeholder="Pretraži firme po nazivu ili gradu..."
+        />
+        <button class="btn btn-sm btn-outline-secondary text-nowrap" @click="exportCsv(filteredCompanies, 'firme')">
+          Export CSV
+        </button>
+      </div>
 
       <table class="table table-sm">
-        <thead><tr><th>Naziv</th><th>Kategorije</th><th></th></tr></thead>
+        <thead>
+          <tr>
+            <th role="button" @click="sortBy('companies', 'naziv')">Naziv {{ sortIndicator('companies', 'naziv') }}</th>
+            <th>Kategorije</th>
+            <th role="button" @click="sortBy('companies', 'brojInteresa')">
+              Interesa {{ sortIndicator('companies', 'brojInteresa') }}
+            </th>
+            <th></th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="c in filteredCompanies" :key="c._id">
+          <tr v-for="c in sortedFilteredCompanies" :key="c._id">
             <td>{{ c.naziv }}</td>
             <td><small>{{ c.kategorije.join(", ") }}</small></td>
+            <td>{{ c.brojInteresa ?? 0 }}</td>
             <td><button class="btn btn-sm btn-outline-danger" @click="deleteCompany(c._id)">Obriši</button></td>
           </tr>
         </tbody>
@@ -177,6 +227,7 @@
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import api from "../api.js";
+import { showSuccess, showError } from "../toast.js";
 
 const tabs = ["Statistika", "Korisnici", "Analize", "Interesi", "Firme"];
 const activeTab = ref("Statistika");
@@ -187,6 +238,10 @@ const interests = ref([]);
 const companies = ref([]);
 const companySearch = ref("");
 const stats = ref({});
+const analysisFilter = ref({ kategorija: "" });
+
+// { users: { key: 'ime', dir: 1 }, analyses: {...}, companies: {...} }
+const sortState = ref({});
 
 const kategorije = [
   "vlaga_i_fleke", "pukotine", "krov", "vodoinstalacije", "elektroinstalacije",
@@ -197,15 +252,73 @@ const newCompany = ref({ naziv: "", grad: "", telefon: "", email: "", kategorije
 const companyError = ref("");
 const companySuccess = ref("");
 
+function sortBy(tableKey, field) {
+  const current = sortState.value[tableKey];
+  if (current && current.key === field) {
+    sortState.value[tableKey] = { key: field, dir: current.dir * -1 };
+  } else {
+    sortState.value[tableKey] = { key: field, dir: 1 };
+  }
+}
+
+function sortIndicator(tableKey, field) {
+  const current = sortState.value[tableKey];
+  if (!current || current.key !== field) return "";
+  return current.dir === 1 ? "▲" : "▼";
+}
+
+function applySort(list, tableKey) {
+  const state = sortState.value[tableKey];
+  if (!state) return list;
+  return [...list].sort((a, b) => {
+    let va = a[state.key];
+    let vb = b[state.key];
+    if (state.key === "ime") { va = a.ime + a.prezime; vb = b.ime + b.prezime; }
+    if (typeof va === "string") va = va.toLowerCase();
+    if (typeof vb === "string") vb = vb.toLowerCase();
+    if (va < vb) return -1 * state.dir;
+    if (va > vb) return 1 * state.dir;
+    return 0;
+  });
+}
+
+const sortedUsers = computed(() => applySort(users.value, "users"));
+
+const filteredAnalyses = computed(() => {
+  if (!analysisFilter.value.kategorija) return analyses.value;
+  return analyses.value.filter((a) => a.kategorija === analysisFilter.value.kategorija);
+});
+const sortedFilteredAnalyses = computed(() => applySort(filteredAnalyses.value, "analyses"));
+
 const filteredCompanies = computed(() => {
   const q = companySearch.value.trim().toLowerCase();
   if (!q) return companies.value;
   return companies.value.filter(
-    (c) =>
-      c.naziv.toLowerCase().includes(q) ||
-      (c.grad || "").toLowerCase().includes(q)
+    (c) => c.naziv.toLowerCase().includes(q) || (c.grad || "").toLowerCase().includes(q)
   );
 });
+const sortedFilteredCompanies = computed(() => applySort(filteredCompanies.value, "companies"));
+
+function exportCsv(list, imeDatoteke) {
+  if (!list.length) {
+    showError("Nema podataka za export.");
+    return;
+  }
+  const keys = Object.keys(list[0]).filter((k) => typeof list[0][k] !== "object");
+  const header = keys.join(",");
+  const rows = list.map((item) =>
+    keys.map((k) => `"${String(item[k] ?? "").replace(/"/g, '""')}"`).join(",")
+  );
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${imeDatoteke}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showSuccess("CSV preuzet.");
+}
 
 async function loadAll() {
   const [u, a, i, c, s] = await Promise.all([
@@ -228,6 +341,7 @@ async function addCompany() {
   try {
     await api.post("/companies", newCompany.value);
     companySuccess.value = "Firma dodana.";
+    showSuccess("Firma dodana.");
     newCompany.value = { naziv: "", grad: "", telefon: "", email: "", kategorije: [] };
     await loadAll();
   } catch (err) {
@@ -238,6 +352,7 @@ async function addCompany() {
 async function deleteCompany(id) {
   if (!confirm("Obrisati firmu?")) return;
   await api.delete(`/companies/${id}`);
+  showSuccess("Firma obrisana.");
   await loadAll();
 }
 
@@ -245,8 +360,9 @@ async function updateInterestStatus(interest, noviStatus) {
   try {
     await api.patch(`/interest/${interest._id}`, { status: noviStatus });
     interest.status = noviStatus;
+    showSuccess("Status azuriran.");
   } catch (err) {
-    alert(err.response?.data?.message || "Greška pri promjeni statusa.");
+    showError(err.response?.data?.message || "Greška pri promjeni statusa.");
   }
 }
 
