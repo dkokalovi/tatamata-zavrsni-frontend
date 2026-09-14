@@ -104,14 +104,23 @@
     </div>
 
     <div v-if="activeTab === 'Analize'">
-      <div class="row g-2 mb-2">
-        <div class="col-6">
+      <div class="row g-2 mb-2 align-items-end">
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Kategorija</label>
           <select v-model="analysisFilter.kategorija" class="form-select form-select-sm">
             <option value="">Sve kategorije</option>
             <option v-for="k in kategorije" :key="k" :value="k">{{ k }}</option>
           </select>
         </div>
-        <div class="col-6 text-end">
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Od datuma</label>
+          <input v-model="analysisFilter.datumOd" type="date" class="form-control form-control-sm" />
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label small mb-1">Do datuma</label>
+          <input v-model="analysisFilter.datumDo" type="date" class="form-control form-control-sm" />
+        </div>
+        <div class="col-6 col-md-3 text-end">
           <button class="btn btn-sm btn-outline-secondary" @click="exportCsv(filteredAnalyses, 'analize')">
             Export CSV
           </button>
@@ -139,13 +148,36 @@
           </tr>
         </tbody>
       </table>
+      <p v-if="sortedFilteredAnalyses.length === 0" class="text-muted small">
+        Nema analiza koje odgovaraju filteru.
+      </p>
     </div>
 
     <div v-if="activeTab === 'Interesi'">
+      <div class="d-flex justify-content-end mb-2">
+        <button class="btn btn-sm btn-outline-secondary" @click="exportCsv(interestsExportData, 'interesi')">
+          Export CSV
+        </button>
+      </div>
       <table class="table table-sm">
-        <thead><tr><th>Korisnik</th><th>Firma</th><th>Ocjena</th><th>Status</th></tr></thead>
+        <thead>
+          <tr>
+            <th role="button" @click="sortBy('interests', 'korisnikIme')">
+              Korisnik {{ sortIndicator('interests', 'korisnikIme') }}
+            </th>
+            <th role="button" @click="sortBy('interests', 'firmaNaziv')">
+              Firma {{ sortIndicator('interests', 'firmaNaziv') }}
+            </th>
+            <th role="button" @click="sortBy('interests', 'ocjena')">
+              Ocjena {{ sortIndicator('interests', 'ocjena') }}
+            </th>
+            <th role="button" @click="sortBy('interests', 'status')">
+              Status {{ sortIndicator('interests', 'status') }}
+            </th>
+          </tr>
+        </thead>
         <tbody>
-          <tr v-for="i in interests" :key="i._id">
+          <tr v-for="i in sortedInterests" :key="i._id">
             <td>{{ i.user?.ime }} {{ i.user?.prezime }}</td>
             <td>{{ i.company?.naziv }}</td>
             <td>{{ i.ocjena ? i.ocjena + " / 5" : "-" }}</td>
@@ -238,9 +270,8 @@ const interests = ref([]);
 const companies = ref([]);
 const companySearch = ref("");
 const stats = ref({});
-const analysisFilter = ref({ kategorija: "" });
+const analysisFilter = ref({ kategorija: "", datumOd: "", datumDo: "" });
 
-// { users: { key: 'ime', dir: 1 }, analyses: {...}, companies: {...} }
 const sortState = ref({});
 
 const kategorije = [
@@ -276,6 +307,8 @@ function applySort(list, tableKey) {
     if (state.key === "ime") { va = a.ime + a.prezime; vb = b.ime + b.prezime; }
     if (typeof va === "string") va = va.toLowerCase();
     if (typeof vb === "string") vb = vb.toLowerCase();
+    if (va === undefined || va === null) va = "";
+    if (vb === undefined || vb === null) vb = "";
     if (va < vb) return -1 * state.dir;
     if (va > vb) return 1 * state.dir;
     return 0;
@@ -285,8 +318,21 @@ function applySort(list, tableKey) {
 const sortedUsers = computed(() => applySort(users.value, "users"));
 
 const filteredAnalyses = computed(() => {
-  if (!analysisFilter.value.kategorija) return analyses.value;
-  return analyses.value.filter((a) => a.kategorija === analysisFilter.value.kategorija);
+  return analyses.value.filter((a) => {
+    if (analysisFilter.value.kategorija && a.kategorija !== analysisFilter.value.kategorija) {
+      return false;
+    }
+    const datum = new Date(a.createdAt);
+    if (analysisFilter.value.datumOd && datum < new Date(analysisFilter.value.datumOd)) {
+      return false;
+    }
+    if (analysisFilter.value.datumDo) {
+      const doDatuma = new Date(analysisFilter.value.datumDo);
+      doDatuma.setHours(23, 59, 59, 999);
+      if (datum > doDatuma) return false;
+    }
+    return true;
+  });
 });
 const sortedFilteredAnalyses = computed(() => applySort(filteredAnalyses.value, "analyses"));
 
@@ -298,6 +344,28 @@ const filteredCompanies = computed(() => {
   );
 });
 const sortedFilteredCompanies = computed(() => applySort(filteredCompanies.value, "companies"));
+
+// Interesi imaju populirane objekte (user, company) - za sortiranje/export
+// trebamo "spljostenu" verziju s ravnim, citljivim poljima.
+const flatInterests = computed(() =>
+  interests.value.map((i) => ({
+    ...i,
+    korisnikIme: `${i.user?.ime || ""} ${i.user?.prezime || ""}`.trim(),
+    firmaNaziv: i.company?.naziv || "",
+  }))
+);
+const sortedInterests = computed(() => applySort(flatInterests.value, "interests"));
+
+const interestsExportData = computed(() =>
+  flatInterests.value.map((i) => ({
+    korisnik: i.korisnikIme,
+    firma: i.firmaNaziv,
+    status: i.status,
+    ocjena: i.ocjena ?? "",
+    komentar: i.komentar || "",
+    datum: new Date(i.createdAt).toLocaleDateString("hr-HR"),
+  }))
+);
 
 function exportCsv(list, imeDatoteke) {
   if (!list.length) {
