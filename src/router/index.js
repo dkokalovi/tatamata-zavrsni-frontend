@@ -2,11 +2,13 @@ import { createRouter, createWebHistory } from "vue-router";
 import Auth from "../views/Auth.vue";
 import Home from "../views/Home.vue";
 import Admin from "../views/Admin.vue";
+import Profile from "../views/Profile.vue";
 
 const routes = [
   { path: "/", name: "Auth", component: Auth, meta: { guestOnly: true } },
   { path: "/pocetna", name: "Home", component: Home, meta: { requiresAuth: true } },
   { path: "/admin", name: "Admin", component: Admin, meta: { requiresAuth: true, requiresAdmin: true } },
+  { path: "/profil", name: "Profile", component: Profile, meta: { requiresAuth: true } },
 ];
 
 const router = createRouter({

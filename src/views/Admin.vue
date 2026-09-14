@@ -10,6 +10,75 @@
       </li>
     </ul>
 
+    <div v-if="activeTab === 'Statistika'">
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-3">
+          <div class="card text-center py-3">
+            <div class="fs-4 fw-bold">{{ stats.brojKorisnika ?? "-" }}</div>
+            <small class="text-muted">Korisnika</small>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card text-center py-3">
+            <div class="fs-4 fw-bold">{{ stats.brojAnaliza ?? "-" }}</div>
+            <small class="text-muted">Analiza</small>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card text-center py-3">
+            <div class="fs-4 fw-bold">{{ stats.brojFirmi ?? "-" }}</div>
+            <small class="text-muted">Firmi</small>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card text-center py-3">
+            <div class="fs-4 fw-bold">{{ stats.brojInteresa ?? "-" }}</div>
+            <small class="text-muted">Interesa</small>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Analize po kategoriji</h6>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr v-for="k in stats.poKategoriji" :key="k._id">
+                <td>{{ k._id }}</td>
+                <td class="text-end">{{ k.broj }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-body">
+          <h6 class="card-title">Interesi po statusu</h6>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr v-for="s in stats.poStatusu" :key="s._id">
+                <td>{{ s._id }}</td>
+                <td class="text-end">{{ s.broj }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title">Prosjecna ocjena firmi</h6>
+          <p class="mb-0">
+            <span v-if="stats.prosjecnaOcjena?.broj">
+              {{ stats.prosjecnaOcjena.prosjek.toFixed(1) }} / 5 ({{ stats.prosjecnaOcjena.broj }} ocjena)
+            </span>
+            <span v-else class="text-muted">Jos nema ocjena.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
     <div v-if="activeTab === 'Korisnici'">
       <table class="table table-sm">
         <thead><tr><th>Ime</th><th>Email</th><th>Rola</th></tr></thead>
@@ -39,11 +108,12 @@
 
     <div v-if="activeTab === 'Interesi'">
       <table class="table table-sm">
-        <thead><tr><th>Korisnik</th><th>Firma</th><th>Status</th></tr></thead>
+        <thead><tr><th>Korisnik</th><th>Firma</th><th>Ocjena</th><th>Status</th></tr></thead>
         <tbody>
           <tr v-for="i in interests" :key="i._id">
             <td>{{ i.user?.ime }} {{ i.user?.prezime }}</td>
             <td>{{ i.company?.naziv }}</td>
+            <td>{{ i.ocjena ? i.ocjena + " / 5" : "-" }}</td>
             <td>
               <select
                 class="form-select form-select-sm"
@@ -108,14 +178,15 @@
 import { ref, computed, onMounted } from "vue";
 import api from "../api.js";
 
-const tabs = ["Korisnici", "Analize", "Interesi", "Firme"];
-const activeTab = ref("Korisnici");
+const tabs = ["Statistika", "Korisnici", "Analize", "Interesi", "Firme"];
+const activeTab = ref("Statistika");
 
 const users = ref([]);
 const analyses = ref([]);
 const interests = ref([]);
 const companies = ref([]);
 const companySearch = ref("");
+const stats = ref({});
 
 const kategorije = [
   "vlaga_i_fleke", "pukotine", "krov", "vodoinstalacije", "elektroinstalacije",
@@ -137,16 +208,18 @@ const filteredCompanies = computed(() => {
 });
 
 async function loadAll() {
-  const [u, a, i, c] = await Promise.all([
+  const [u, a, i, c, s] = await Promise.all([
     api.get("/admin/users"),
     api.get("/admin/analyses"),
     api.get("/admin/interests"),
     api.get("/companies"),
+    api.get("/admin/stats"),
   ]);
   users.value = u.data;
   analyses.value = a.data;
   interests.value = i.data;
   companies.value = c.data;
+  stats.value = s.data;
 }
 
 async function addCompany() {

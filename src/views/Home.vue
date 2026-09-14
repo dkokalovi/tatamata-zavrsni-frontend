@@ -69,20 +69,39 @@
           <li
             v-for="c in result.preporuceneFirme"
             :key="c._id"
-            class="list-group-item d-flex justify-content-between align-items-center"
+            class="list-group-item"
           >
-            <div>
-              <strong>{{ c.naziv }}</strong> <span class="text-muted">· {{ c.grad }}</span>
-              <br />
-              <small>{{ c.telefon }} · {{ c.email }}</small>
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ c.naziv }}</strong> <span class="text-muted">· {{ c.grad }}</span>
+                <br />
+                <small>{{ c.telefon }} · {{ c.email }}</small>
+              </div>
+              <button
+                class="btn btn-sm btn-outline-dark"
+                :disabled="interestSentFor.has(c._id)"
+                @click="expressInterest(c._id)"
+              >
+                {{ interestSentFor.has(c._id) ? "Poslano ✓" : "Zanima me" }}
+              </button>
             </div>
-            <button
-              class="btn btn-sm btn-outline-dark"
-              :disabled="interestSentFor.has(c._id)"
-              @click="expressInterest(c._id)"
-            >
-              {{ interestSentFor.has(c._id) ? "Poslano ✓" : "Zanima me" }}
-            </button>
+
+            <!-- Ocjenjivanje - pojavi se nakon sto je interes poslan -->
+            <div v-if="interestSentFor.has(c._id)" class="mt-2 pt-2 border-top">
+              <div v-if="!ratedFor.has(c._id)">
+                <label class="form-label small mb-1">Ocijeni firmu (nakon zavrsenog posla):</label>
+                <div class="d-flex align-items-center gap-2">
+                  <select v-model.number="ratingInputs[c._id]" class="form-select form-select-sm" style="width: auto">
+                    <option :value="0" disabled>Ocjena</option>
+                    <option v-for="n in [1, 2, 3, 4, 5]" :key="n" :value="n">{{ n }} / 5</option>
+                  </select>
+                  <button class="btn btn-sm btn-outline-secondary" @click="rateCompany(c._id)">
+                    Spremi ocjenu
+                  </button>
+                </div>
+              </div>
+              <p v-else class="text-success small mb-0">Hvala na ocjeni! ✓</p>
+            </div>
           </li>
         </ul>
         <p v-else class="text-muted small">Trenutno nema firmi za ovu kategoriju u bazi.</p>
@@ -120,6 +139,9 @@ const uploadError = ref("");
 const result = ref(null);
 const history = ref([]);
 const interestSentFor = ref(new Set());
+const ratedFor = ref(new Set());
+const ratingInputs = ref({});
+const interestIdFor = ref({});
 
 function onFileChange(e) {
   const file = e.target.files[0];
@@ -138,6 +160,7 @@ async function submitAnalysis() {
   analyzing.value = true;
   result.value = null;
   interestSentFor.value = new Set();
+  ratedFor.value = new Set();
 
   try {
     const formData = new FormData();
@@ -159,10 +182,26 @@ async function submitAnalysis() {
 
 async function expressInterest(companyId) {
   try {
-    await api.post("/interest", { companyId, analysisId: result.value._id });
+    const { data } = await api.post("/interest", { companyId, analysisId: result.value._id });
     interestSentFor.value = new Set([...interestSentFor.value, companyId]);
+    interestIdFor.value[companyId] = data._id;
   } catch (err) {
     alert(err.response?.data?.message || "Greška.");
+  }
+}
+
+async function rateCompany(companyId) {
+  const ocjena = ratingInputs.value[companyId];
+  if (!ocjena) {
+    alert("Odaberi ocjenu prije spremanja.");
+    return;
+  }
+  try {
+    const interestId = interestIdFor.value[companyId];
+    await api.patch(`/interest/${interestId}/ocjena`, { ocjena });
+    ratedFor.value = new Set([...ratedFor.value, companyId]);
+  } catch (err) {
+    alert(err.response?.data?.message || "Greška pri spremanju ocjene.");
   }
 }
 
@@ -178,6 +217,7 @@ function formatDate(iso) {
 function viewHistoryItem(h) {
   result.value = h;
   interestSentFor.value = new Set();
+  ratedFor.value = new Set();
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
