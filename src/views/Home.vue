@@ -144,4 +144,55 @@ async function submitAnalysis() {
     formData.append("photo", file);
     formData.append("description", description.value);
 
-    const { data } =
+    const { data } = await api.post("/analysis", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    result.value = data;
+    await loadHistory();
+  } catch (err) {
+    uploadError.value = err.response?.data?.message || "Greška pri analizi. Pokušaj ponovno.";
+  } finally {
+    analyzing.value = false;
+  }
+}
+
+async function expressInterest(companyId) {
+  try {
+    await api.post("/interest", { companyId, analysisId: result.value._id });
+    interestSentFor.value = new Set([...interestSentFor.value, companyId]);
+  } catch (err) {
+    alert(err.response?.data?.message || "Greška.");
+  }
+}
+
+async function loadHistory() {
+  const { data } = await api.get("/analysis");
+  history.value = data;
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString("hr-HR");
+}
+
+function viewHistoryItem(h) {
+  result.value = h;
+  interestSentFor.value = new Set();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function deleteHistoryItem(h) {
+  if (!confirm("Obrisati ovu prijavu?")) return;
+  try {
+    await api.delete(`/analysis/${h._id}`);
+    history.value = history.value.filter((item) => item._id !== h._id);
+    if (result.value && result.value._id === h._id) {
+      result.value = null;
+    }
+  } catch (err) {
+    alert(err.response?.data?.message || "Greška pri brisanju.");
+  }
+}
+
+onMounted(loadHistory);
+</script>
