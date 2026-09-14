@@ -25,4 +25,4 @@ Admin -> email: "admin@tatamata.hr", lozinka: "lozinka123"
 Korisnik -> email: "davidovic@gmail.com", lozinka: "lozinka123"
 
 Web aplikacija: https://tatamata-zavrsni-frontend.netlify.app
-Dokumentacija: [priložena dokumentacija završnog rada](LINK_DO_PDF_U_REPOZITORIJU)
+Dokumentacija:    https://github.com/dkokalovi/tatamata-zavrsni-frontend/blob/main/docs/zavrsni-rad.pdf
