@@ -1,56 +1,28 @@
-# TataMata - Frontend
+# RAZVOJ MOBILNE APLIKACIJE ZA PREPOZNAVANJE GRAĐEVINSKIH PROBLEMA PRIMJENOM UMJETNE INTELIGENCIJE - FRONTEND
 
-Frontend za TataMata aplikaciju - Vue 3 (Vite) korisničko sučelje za upload fotografije
-građevinskog problema, prikaz AI dijagnoze i preporuku obrta.
+Završni rad
+Autor: David Kokalović
+Mentor: izv. prof.  dr. sc. Nikola Tanković
 
-Backend za ovaj frontend je odvojen repozitorij: **tatamata-backend** (Express API), mora
-raditi istovremeno da bi aplikacija funkcionirala.
+Sveučilište Jurja Dobrile u Puli, Fakultet informatike
 
-## Tehnologije
+## Sažetak
 
-- Vue 3 (Vite)
-- Vue Router
-- Bootstrap 5
-- Axios
+Vođen idejom olakšavanja prepoznavanja i rješavanja građevinskih problema u kućanstvu te povezivanja korisnika s odgovarajućim majstorima, izradio sam web aplikaciju "TataMata". Korisnik fotografira problem (npr. vlagu, pukotinu, oštećenje) i po potrebi doda kratak opis, nakon čega umjetna inteligencija analizira fotografiju te predlaže vjerojatnu dijagnozu, preporučeno rješenje i okvirnu procjenu troška, uz preporuku majstora/firmi koje rade u odgovarajućoj kategoriji. Aplikacija se sastoji od tri razine pristupa ovisno o ulozi korisnika: klijent, obrtnik (majstor) i administrator. Backend dio (Node.js/Express, MongoDB, integracija s Claude AI) izradio sam samostalno, kao i pripadajući frontend (Vue 3) opisan u ovom dokumentu. Na kraju mogu zaključiti da sam prilično zadovoljan s izrađenim funkcionalnostima, no u sljedećoj nadogradnji svakako bi trebalo dodati izravnu komunikaciju (chat) između korisnika i majstora nakon izraženog interesa, kako bi se dogovaranje posla u potpunosti moglo obaviti kroz samu aplikaciju, umjesto oslanjanja na telefon ili email naveden uz profil majstora.
 
-## Pokretanje
+## Funkcionalnosti
 
-Potreban je Node.js (18+) i pokrenut **tatamata-backend** (vidi taj repozitorij za upute).
+* **Neautorizirani korisnici:** Prijava ili registracija (kao klijent ili kao obrtnik)
+* **Klijenti:** Prijava problema fotografijom uz opcionalan opis, AI dijagnoza problema s preporučenim rješenjem i procjenom troška, preporuka majstora/firmi prema kategoriji problema, izražavanje interesa za odabranog majstora, ocjenjivanje majstora nakon završenog posla, uvid u povijest vlastitih prijava i njihovo brisanje, uređivanje vlastitog profila i promjena lozinke
+* **Obrtnici (majstori):** Sve funkcionalnosti kao i klijenti, uz mogućnost samostalne registracije vlastitog obrta (naziv, kontakt, kategorije rada) bez potrebe da ga doda administrator - obrt se odmah pojavljuje među preporukama za odgovarajuću kategoriju problema
+* **Administrator:** Pregled svih registriranih korisnika, svih prijavljenih analiza i svih izraženih interesa, ručno dodavanje i brisanje firmi, promjena statusa interesa (na čekanju / kontaktirano / završeno), pregled statistike (broj korisnika, analiza po kategoriji, interesa po statusu, prosječna ocjena majstora), pretraga i sortiranje podataka po stupcima, filtriranje analiza po kategoriji i razdoblju, izvoz podataka u CSV format
 
-```bash
-npm install
-npm run dev
-```
+## Demo računi
 
-Frontend se pokreće na `http://localhost:5173`. Zahtjevi prema `/api` i `/uploads` se
-automatski proxiraju na backend - vidi `vite.config.js`. Ako backend radi na drugom
-portu/adresi od defaultnog `http://localhost:5050`, promijeni to u `vite.config.js`
-(`server.proxy`).
+Registracija je otvorena svima, bez potrebe za pristupnim kodom.
 
-Za testiranje na mobitelu preko lokalne mreže: `npm run dev -- --host`, pa otvori ispisanu
-"Network" adresu na mobitelu (mobitel i računalo moraju biti na istoj WiFi mreži). U tom
-slučaju backend mora u svom `CLIENT_ORIGIN` (.env) imati i tu mrežnu adresu, ne samo
-`localhost`.
+Admin -> email: "admin@tatamata.hr", lozinka: "lozinka123"
+Korisnik -> email: "davidovic@gmail.com", lozinka: "lozinka123"
 
-## Struktura
-
-```
-src/
-├── main.js              # ulazna tocka, montira Vue app
-├── App.vue               # korijenska komponenta, navigacijska traka
-├── api.js                 # axios instanca s JWT interceptorom + imageUrl() helper
-├── router/index.js        # rute + auth guard
-└── views/
-    ├── Auth.vue            # login / registracija
-    ├── Home.vue            # upload fotografije, prikaz AI rezultata, povijest
-    └── Admin.vue           # admin panel (korisnici, analize, interesi, firme)
-```
-
-## Autentikacija i zaštićene fotografije
-
-JWT token se sprema u `localStorage` nakon logina i automatski dodaje u `Authorization`
-header svakog API poziva (vidi `api.js`). Budući da backend sad štiti i fotografije
-(`/uploads/:filename` traži autorizaciju), `<img>` tagovi ne mogu poslati taj header
-direktno - zato `api.js` izvozi pomoćnu funkciju `imageUrl(path)` koja doda token kao
-`?token=` query parametar na URL slike. Uvijek koristi tu funkciju za prikaz fotografija
-iz backend odgovora, ne putanju iz baze direktno.
+Web aplikacija: https://tatamata-zavrsni-frontend.netlify.app
+Dokumentacija: [priložena dokumentacija završnog rada](LINK_DO_PDF_U_REPOZITORIJU)
